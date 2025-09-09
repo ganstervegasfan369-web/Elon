@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Elongma Runner v2</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0d1117;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      text-align: center;
+    }
+    h1 { margin: 10px 0; }
+    #game {
+      display: block;
+      margin: 0 auto;
+      border: 3px solid gold;
+      border-radius: 10px;
+      background: #111;
+    }
+    #score {
+      font-size: 20px;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Elongma Runner v2</h1>
+  <p>Tap / Space to Jump | Collect 💰 | Avoid 💩</p>
+  <canvas id="game" width="900" height="300"></canvas>
+  <div id="score">Score: 0 | Coins: 0</div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+
+    // Sounds
+    const jumpSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    const crashSound = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+    const coinSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+
+    // Player
+    const playerImg = new Image();
+    playerImg.src = "https://black-labour-buzzard-448.mypinata.cloud/ipfs/bafybeiddmwvy45g4zsxgngsiihxq7tztvjenjkt5utrdgwla5vhxnihmp4";
+
+    const player = {
+      x: 60, y: H - 100, w: 60, h: 60,
+      vy: 0, gravity: 0.6, jumpPower: 12, grounded: true,
+      draw(){ ctx.drawImage(playerImg, this.x, this.y, this.w, this.h); },
+      update(){
+        this.vy += this.gravity;
+        this.y += this.vy;
+        if (this.y + this.h >= H - 20) {
+          this.y = H - 20 - this.h;
+          this.vy = 0; this.grounded = true;
+        } else this.grounded = false;
+      },
+      jump(){ if(this.grounded){ this.vy = -this.jumpPower; jumpSound.play(); } }
+    };
+
+    // Obstacles
+    class Obstacle {
+      constructor(){
+        this.w = 40; this.h = 40;
+        this.x = W + 20; this.y = H - 20 - this.h;
+        this.emoji = ["💩","🐻","📰","😱"][Math.floor(Math.random()*4)];
+      }
+      update(){ this.x -= 6; }
+      draw(){ ctx.font = "32px Arial"; ctx.fillText(this.emoji, this.x, this.y+30); }
+    }
+
+    // Coins
+    class Coin {
+      constructor(){
+        this.w = 30; this.h = 30;
+        this.x = W + 20; this.y = H - 100 - Math.random()*80;
+      }
+      update(){ this.x -= 6; }
+      draw(){ ctx.font = "28px Arial"; ctx.fillText("💰", this.x, this.y+25); }
+    }
+
+    let obstacles = [], coins = [], frame = 0, score = 0, coinCount = 0, gameOver = false;
+
+    function reset(){
+      obstacles = []; coins = []; frame = 0; score = 0; coinCount = 0; gameOver = false;
+      player.y = H - 100; player.vy = 0;
+      loop();
+    }
+
+    function drawGround(){
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(0,H-20,W,20);
+    }
+
+    function loop(){
+      ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+      drawGround();
+
+      // Background stars
+      ctx.fillStyle = "#fff";
+      for(let i=0;i<50;i++){ ctx.fillRect(Math.random()*W, Math.random()*H, 2,2); }
+
+      frame++;
+
+      // Spawn obstacles
+      if(frame % 100 === 0) obstacles.push(new Obstacle());
+      // Spawn coins
+      if(frame % 150 === 0) coins.push(new Coin());
+
+      // Update player
+      player.update(); player.draw();
+
+      // Obstacles
+      for(let i=obstacles.length-1;i>=0;i--){
+        let ob = obstacles[i]; ob.update(); ob.draw();
+        if(ob.x+ob.w<0) obstacles.splice(i,1);
+        if(player.x<ob.x+ob.w && player.x+player.w>ob.x && player.y<ob.y+ob.h && player.y+player.h>ob.y){
+          crashSound.play();
+          gameOver = true;
+        }
+      }
+
+      // Coins
+      for(let i=coins.length-1;i>=0;i--){
+        let c = coins[i]; c.update(); c.draw();
+        if(c.x+c.w<0) coins.splice(i,1);
+        if(player.x<c.x+c.w && player.x+player.w>c.x && player.y<c.y+c.h && player.y+player.h>c.y){
+          coinSound.play();
+          coins.splice(i,1); coinCount++;
+        }
+      }
+
+      // Score
+      if(!gameOver){ score++; }
+      document.getElementById("score").innerText = "Score: "+score+" | Coins: "+coinCount;
+
+      if(gameOver){
+        ctx.fillStyle="rgba(0,0,0,0.5)";
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle="#fff"; ctx.font="24px Arial";
+        ctx.fillText("💀 Game Over — Tap / Space to Restart", 180,H/2);
+        return;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    document.addEventListener("keydown", e=>{
+      if(e.code==="Space"){ e.preventDefault(); if(gameOver) reset(); else player.jump(); }
+    });
+    canvas.addEventListener("click", ()=>{ if(gameOver) reset(); else player.jump(); });
+
+    loop();
+  </script>
+</body>
+</html>
